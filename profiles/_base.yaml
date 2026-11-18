@@ -1,0 +1,54 @@
+# Base content profile. Every profile in this folder is deep-merged on top of this file,
+# and the result is layered over config/settings.yaml. Only override what differs.
+
+name: Generic stream
+game: ""                       # used as a hard fact in metadata ("" = not a game)
+content_type: livestream
+audience:
+  regions: [United States, United Kingdom, Canada, Australia]
+  language_style: natural, conversational American English with Western internet humor
+  avoid: [Hinglish, Indian slang, keyword stuffing, misleading clickbait, irrelevant trending hashtags]
+
+transcription:
+  language: en
+  initial_prompt: ""           # vocabulary hint for Whisper (names, places, slang)
+
+detection:
+  # words/phrases that signal excitement (regex alternatives, case-insensitive)
+  hype_terms: [oh my god, omg, what the, wtf, no way, "let'?s go+", "bro+", dude, holy, "yo+", wait,
+               no no, are you serious, oh no, insane, crazy, bruh, clip (that|it), "nah+", jesus,
+               oh shit, shit, "fuck\\w*", damn, unbelievable, look at, run]
+  laugh_terms: ["ha(ha)+", "he(he)+", lol, "lmao+", lmfao]
+  signal_weights:              # how much each signal contributes to "interest"
+    loudness: 0.34
+    hype_words: 0.18
+    laughter: 0.27
+    speech_rate: 0.10
+    visual_change: 0.12
+    flash: 0.04
+    pause_then_burst: 0.6
+
+# what kinds of moments exist for this content (key: description for the AI)
+categories:
+  funny_reaction: streamer reacts in a genuinely funny way
+  fail: something goes hilariously wrong
+  unexpected: something nobody saw coming
+  funny_conversation: banter or dialogue that is funny on its own
+  rage: frustration/rage that is entertaining, not toxic
+  skill: impressive play or achievement
+  other: anything else that is clearly entertaining
+
+scoring:
+  # 0-100 virality score weights (should sum to 100)
+  weights: {hook: 15, entertainment: 20, unexpectedness: 10, emotion: 10, relatability: 5,
+            story_clarity: 10, replay: 5, standalone: 10, audio_quality: 7.5, visual_quality: 7.5}
+  editor_brief: >-
+    Prioritize moments that make someone stop scrolling within 1-2 seconds and that make sense
+    without having watched the stream.
+
+metadata:
+  style: >-
+    Short, punchy, curiosity-driven but honest. Speak like a Western gaming fan, not a marketer.
+  youtube_hashtags: ["#Shorts"]
+  instagram_hashtags: []
+  glossary: []                 # correct spellings of names/terms for captions and titles

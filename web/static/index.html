@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clip Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237564ff'/><path d='M12 9l11 7-11 7z' fill='white'/></svg>">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" data-icon="play"></div>
+        <div>Clip Studio<small>AI clipping engine</small></div>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="#/" data-route=""><span data-icon="home"></span>Overview</a>
+        <a href="#/jobs" data-route="jobs"><span data-icon="activity"></span>Jobs<span class="count" id="nav-jobs" hidden></span></a>
+        <div class="nav-section">Content</div>
+        <a href="#/clips" data-route="clips"><span data-icon="film"></span>Clips<span class="count" id="nav-review" hidden></span></a>
+      </nav>
+      <div class="sidebar-foot" id="sidebar-foot"></div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <button class="btn icon ghost menu-btn" id="menu-btn" aria-label="Menu"><span data-icon="menu"></span></button>
+        <div class="crumbs" id="crumbs"></div>
+        <div class="spacer"></div>
+        <div class="row" id="topbar-actions"></div>
+      </header>
+      <div id="view"></div>
+    </main>
+  </div>
+  <div class="toasts" id="toasts"></div>
+  <div class="tooltip" id="tooltip"></div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

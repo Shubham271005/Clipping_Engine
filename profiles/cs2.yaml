@@ -1,0 +1,42 @@
+name: Counter-Strike 2 stream highlights
+game: Counter-Strike 2
+content_type: competitive FPS livestream
+
+transcription:
+  initial_prompt: >-
+    Counter-Strike 2 stream. CS2, AWP, AK, deagle, one tap, clutch, ace, bomb, defuse, plant, eco,
+    force buy, Premier, FACEIT, Mirage, Inferno, Dust 2, Nuke, Ancient, Anubis.
+
+detection:
+  extra_hype_terms: [ace, clutch, "one ?tap", awp, deagle, "1v[2-5]", defuse, ninja defuse, eco, noscope]
+  peak_min_distance_s: 20
+  setup_before_peak_s: 12
+  payoff_after_peak_s: 7
+  min_clip_s: 10
+  max_clip_s: 45
+  signal_weights:
+    loudness: 0.36
+    hype_words: 0.24
+    visual_change: 0.06
+
+categories:
+  clutch: 1vX clutch under pressure
+  ace: five kills / huge multi-kill
+  outplay: big-brain play, ninja defuse, flank
+  funny_reaction: hilarious reaction or comms
+  fail: whiff, nade fail, team kill
+  rage: entertaining tilt (not toxic)
+  other: clearly entertaining but none of the above
+
+scoring:
+  editor_brief: Payoff within ~25s, readable on a phone; reject routine frags.
+
+editing:
+  gameplay_layout_aspect: 0.9
+  punch_ins: 1
+
+metadata:
+  style: Sound like a Western CS player. Use CS2 slang (clutch, ace, deagle one-tap) naturally.
+  youtube_hashtags: ["#Shorts", "#CS2", "#CounterStrike2", "#Gaming"]
+  instagram_hashtags: ["#cs2", "#counterstrike", "#fps", "#gaming"]
+  glossary: [CS2, Counter-Strike 2, AWP, Deagle, FACEIT, Mirage, Inferno]

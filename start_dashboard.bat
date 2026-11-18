@@ -1,0 +1,5 @@
+@echo off
+rem Starts Clip Studio on http://127.0.0.1:8765 (localhost only, no login needed)
+cd /d "%~dp0"
+start "" http://127.0.0.1:8765
+.venv\Scripts\python.exe -m web.server %*

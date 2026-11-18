@@ -1,0 +1,37 @@
+name: Minecraft stream highlights
+game: Minecraft
+content_type: sandbox/survival livestream
+
+transcription:
+  initial_prompt: >-
+    Minecraft stream. Creeper, Enderman, Ender Dragon, Nether, diamonds, netherite, elytra, totem,
+    hardcore, speedrun, villager, piglin, mob, spawn, redstone.
+
+detection:
+  extra_hype_terms: [creeper, "diamonds?", netherite, totem, hardcore, died, lava, fell, "ender ?dragon",
+               elytra, villager, "mlg"]
+  setup_before_peak_s: 20
+  payoff_after_peak_s: 8
+  max_clip_s: 55
+  signal_weights:
+    visual_change: 0.08
+
+categories:
+  death: dramatic or funny death (lava, fall, creeper)
+  clutch_save: MLG water bucket, totem pop, last-second escape
+  discovery: finding diamonds, rare structure or seed
+  funny_reaction: hilarious reaction
+  build_reveal: satisfying build or redstone reveal
+  fail: hilarious mistake
+  other: clearly entertaining but none of the above
+
+scoring:
+  editor_brief: >-
+    Minecraft clips work when tension builds then pays off (death, save, discovery). Reject slow mining
+    or building without a payoff.
+
+metadata:
+  style: Sound like a Western Minecraft fan. Wholesome-to-chaotic humor, no misleading "seed" claims.
+  youtube_hashtags: ["#Shorts", "#Minecraft", "#Gaming"]
+  instagram_hashtags: ["#minecraft", "#minecraftclips", "#gaming"]
+  glossary: [Minecraft, Creeper, Enderman, Nether, Netherite, Elytra]

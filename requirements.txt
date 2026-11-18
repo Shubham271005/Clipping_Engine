@@ -1,0 +1,19 @@
+faster-whisper>=1.2
+nvidia-cublas-cu12      # GPU transcription on Windows (CTranslate2)
+nvidia-cudnn-cu12
+yt-dlp>=2026.10
+numpy>=2.0
+opencv-python-headless>=4.10,<5   # 5.x dropped Haar cascades (facecam detection)
+pyyaml>=6.0
+python-dotenv>=1.0
+requests>=2.32
+tzdata
+google-api-python-client>=2.150
+google-auth-oauthlib>=1.2
+google-auth-httplib2>=0.2
+# external: ffmpeg (with libass + NVENC) on PATH; optional: Claude Code CLI (`claude`) for AI review/metadata
+# dashboard (Clip Studio)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+psutil>=6.0
+python-multipart>=0.0.9

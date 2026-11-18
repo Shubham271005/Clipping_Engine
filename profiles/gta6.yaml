@@ -1,0 +1,53 @@
+name: GTA 6 livestream highlights
+game: GTA 6
+content_type: gameplay livestream
+
+transcription:
+  initial_prompt: >-
+    GTA 6 livestream. Vice City, Leonida, Lucia, Jason, Rockstar, NPC, cops, wanted level,
+    five stars, heist, bro, dude, chat.
+
+detection:
+  extra_hype_terms: [cops, five stars, wanted, police, ragdoll, glitch, "npc", crashed, explod\w*, heist,
+               get in the car, drive, shoot, chat]
+  setup_before_peak_s: 18
+  payoff_after_peak_s: 9
+  min_clip_s: 12
+  max_clip_s: 55
+  signal_weights:
+    loudness: 0.34
+    visual_change: 0.14      # chases, crashes, explosions
+    flash: 0.06
+
+categories:
+  funny_reaction: streamer's genuinely funny reaction to something in-game
+  npc_interaction: unexpected or hilarious NPC behavior/dialogue
+  glitch_physics: glitches, ragdoll physics, cars flying, broken AI
+  insane_gameplay: wild chases, escapes, stunts, impossible plays
+  unexpected_encounter: something random happens in the open world
+  rage: entertaining frustration (not toxic)
+  plot_twist: surprising story/mission moment (no heavy spoilers in titles)
+  funny_conversation: funny banter with chat, friends or NPCs
+  fail: streamer fails hilariously
+  discovery: hidden detail, easter egg, secret location
+  rare_moment: something rare most players will never see
+  other: clearly entertaining but none of the above
+
+scoring:
+  editor_brief: >-
+    GTA moments win when the payoff is visual chaos or a priceless reaction. Prefer chases, physics
+    chaos, absurd NPCs and genuine reactions. Avoid menus, loading screens, long drives with no payoff,
+    and heavy story spoilers.
+
+editing:
+  gameplay_layout_aspect: 1.0
+  punch_ins: 2
+
+metadata:
+  style: >-
+    Sound like a US GTA fan sharing a clip with friends. Use GTA terminology naturally
+    (Vice City, Leonida, five stars, cops, NPCs). Never claim it is GTA 6 gameplay if it is trailer or
+    another game. Avoid story spoilers in titles.
+  youtube_hashtags: ["#Shorts", "#GTA6", "#GTAVI", "#Gaming"]
+  instagram_hashtags: ["#gta6", "#gtavi", "#gaming", "#gamingclips", "#vicecity"]
+  glossary: [GTA 6, GTA VI, Vice City, Leonida, Lucia, Jason, Rockstar, NPC]

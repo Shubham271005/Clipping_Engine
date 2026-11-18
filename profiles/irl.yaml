@@ -1,0 +1,36 @@
+name: IRL stream highlights
+game: ""
+content_type: IRL (in real life) livestream
+
+detection:
+  extra_hype_terms: [chat, "y'?all", oh my god, no way, wait what]
+  setup_before_peak_s: 22
+  payoff_after_peak_s: 10
+  max_clip_s: 60
+  signal_weights:
+    loudness: 0.30
+    hype_words: 0.20
+    laughter: 0.32
+    visual_change: 0.05      # handheld camera motion is noise, not action
+
+categories:
+  funny_reaction: genuinely funny reaction
+  wholesome: heartwarming interaction
+  unexpected: something random happens
+  funny_conversation: funny banter with people or chat
+  awkward: entertaining awkward moment (never mocking private bystanders)
+  other: clearly entertaining but none of the above
+
+scoring:
+  editor_brief: >-
+    IRL clips live or die on the conversation and reaction. Reject anything that features private
+    bystanders negatively, reveals private information, or needs a lot of context.
+
+editing:
+  gameplay_layout_aspect: 0.8    # camera footage: tighter vertical crop works
+  punch_ins: 2
+
+metadata:
+  style: Conversational, warm and funny; never mock private individuals.
+  youtube_hashtags: ["#Shorts", "#IRL", "#Streamer"]
+  instagram_hashtags: ["#irl", "#streamer", "#funny"]

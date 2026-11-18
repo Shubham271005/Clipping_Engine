@@ -1,0 +1,16 @@
+.env
+secrets/
+.venv/
+__pycache__/
+downloads/
+transcripts/
+candidate_clips/
+final_clips/
+subtitles/
+metadata/
+analytics/
+logs/
+database/
+work/
+*.mp4
+*.mkv

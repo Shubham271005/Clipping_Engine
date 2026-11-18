@@ -1,0 +1,61 @@
+# Clipping Engine - global configuration (content-specific settings live in profiles/)
+# Secrets never go here. They live in .env and secrets/ (both git-ignored).
+
+transcription:
+  model: large-v3-turbo          # faster-whisper model; falls back to cpu_model on CPU
+  cpu_model: small.en
+  device: auto                    # auto | cuda | cpu
+  language: en
+  chunk_minutes: 20               # long streams are transcribed in chunks to cap RAM
+
+detection:
+  peak_min_distance_s: 25         # minimum spacing between candidate peaks
+  max_candidates: 80              # raw candidates sent to the AI review
+  setup_before_peak_s: 18         # context before the peak (build-up)
+  payoff_after_peak_s: 9          # context after the peak (payoff)
+  min_clip_s: 12
+  max_clip_s: 60
+
+review:
+  use_llm: true                   # uses your local `claude` CLI (no extra API bill)
+  llm_model: sonnet
+  batch_size: 6
+  min_virality: 60                # clips below this score are rejected
+  max_final_clips: 40
+  overlap_threshold: 0.35
+
+editing:
+  encoder: h264_nvenc             # h264_nvenc (GPU) or libx264 (CPU fallback)
+  font: Arial Black
+  fonts_dir: C:/Windows/Fonts
+  caption_words_per_line: 3
+  caption_color: "&H00FFFFFF"     # ASS BGR: white
+  highlight_color: "&H0000E1FF"   # current word: yellow-orange
+  emphasis_color: "&H0055FF55"    # hype words: green
+  mask_profanity: true            # f*** in captions (advertiser-friendly); audio untouched
+  smart_cut_gap_s: 1.1            # silent + static gaps longer than this get tightened
+  punch_ins: 2                    # max reaction punch-in zooms per clip (0 disables)
+  gameplay_layout_aspect: 1.0     # crop aspect (w/h) of gameplay when no facecam
+  loudness_lufs: -14
+
+metadata:
+  credit_streamer: true           # always credit the source creator in descriptions
+
+publishing:
+  timezone: America/New_York      # Western audience reference timezone
+  require_commercial_permission: true
+  require_approval: true          # only clips approved by a human (dashboard / `main.py approve`) get scheduled
+  youtube:
+    enabled: true
+    daily_limit: 2                # conservative start; raise once performance justifies it
+    slots: ["12:30", "17:00", "20:00"]
+    upload_lead_hours: 20         # upload this early and let YouTube publish at the slot (publishAt)
+    quota_uploads_per_day: 6      # 10k units/day default quota / 1600 per upload
+    category_id: "20"             # Gaming
+  instagram:
+    enabled: true
+    daily_limit: 2
+    slots: ["11:00", "15:00", "19:30"]
+    api_version: v24.0
+    share_to_feed: true
+  min_gap_hours: 3

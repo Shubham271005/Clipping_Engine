@@ -1,0 +1,47 @@
+name: Valorant stream highlights
+game: Valorant
+content_type: competitive FPS livestream
+
+transcription:
+  initial_prompt: >-
+    Valorant stream. Ace, clutch, one tap, Vandal, Phantom, Operator, Op, Sheriff, Jett, Reyna,
+    Sage, Phoenix, Raze, Omen, Killjoy, Cypher, spike, defuse, plant, eco, ult, ranked, Radiant, Immortal.
+
+detection:
+  extra_hype_terms: [ace, clutch, "one ?tap", "1v[2-5]", "one v (two|three|four|five)", defuse, spike,
+               headshot, "op", sheriff, "team ?kill", thrifty, flawless]
+  peak_min_distance_s: 20
+  setup_before_peak_s: 12
+  payoff_after_peak_s: 7
+  min_clip_s: 10
+  max_clip_s: 45
+  signal_weights:
+    loudness: 0.36
+    hype_words: 0.24
+    visual_change: 0.06       # FPS screens change constantly; visual signal is weak here
+
+categories:
+  clutch: 1vX clutch or round-winning play under pressure
+  ace: five kills in a round or insane multi-kill
+  outplay: big-brain play, flank or trick
+  funny_reaction: hilarious reaction or comms
+  fail: whiff, team kill, throwing a round
+  rage: entertaining tilt (not toxic)
+  teammate_moment: funny or wild teammate/enemy comms
+  other: clearly entertaining but none of the above
+
+scoring:
+  editor_brief: >-
+    Valorant clips need the payoff (the final kill, defuse, or reaction) within ~25 seconds and must be
+    readable on a phone. Reject routine kills and rounds without tension.
+
+editing:
+  gameplay_layout_aspect: 0.9   # tighter crop: crosshair action sits in the centre
+  punch_ins: 1
+
+metadata:
+  style: >-
+    Sound like a Western Valorant player. Use terms like clutch, ace, 1v4, whiff, ranked naturally.
+  youtube_hashtags: ["#Shorts", "#Valorant", "#ValorantClips", "#Gaming"]
+  instagram_hashtags: ["#valorant", "#valorantclips", "#fps", "#gaming"]
+  glossary: [Valorant, Jett, Reyna, Vandal, Phantom, Operator, Radiant, Immortal]

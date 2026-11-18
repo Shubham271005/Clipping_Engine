@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clip Studio · Sign in</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="login">
+    <form class="card" id="f">
+      <div class="card-b stack">
+        <div class="brand" style="padding:0">
+          <div class="brand-mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg></div>
+          <div>Clip Studio<small>Sign in to continue</small></div>
+        </div>
+        <div class="field">
+          <label for="pw">Dashboard password</label>
+          <input class="input" type="password" id="pw" autocomplete="current-password" autofocus required>
+        </div>
+        <div class="callout bad" id="err" hidden></div>
+        <button class="btn primary" type="submit" id="go">Sign in</button>
+      </div>
+    </form>
+  </div>
+  <script>
+    document.getElementById('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('go'), err = document.getElementById('err');
+      btn.classList.add('loading'); err.hidden = true;
+      const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('pw').value }) });
+      btn.classList.remove('loading');
+      if (r.ok) location.href = '/'; else { err.textContent = 'Wrong password.'; err.hidden = false; }
+    });
+  </script>
+</body>
+</html>
