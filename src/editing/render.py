@@ -113,7 +113,7 @@ def _zoom_expr(times: list[float]) -> str:
 
 # ------------------------------------------------------------------ main render
 def render(source: dict, transcript: dict, sig: dict, cand: dict, clip_id: str,
-           corrections: dict | None = None, hook_text: str = "") -> dict:
+           corrections: dict | None = None, hook_text: str = "", layout_override=None) -> dict:
     src = Path(source["local_path"])
     info = probe(src)
     W, H = info["width"], info["height"]
@@ -124,6 +124,11 @@ def render(source: dict, transcript: dict, sig: dict, cand: dict, clip_id: str,
     # 1) smart-cut intermediate
     segs = plan_segments(transcript, sig, cand["start"], cand["end"])
     base = max(0.0, cand["start"] - 2.0)
+    # snap every cut to a frame boundary: video can only cut on frames while audio cuts sample-exact,
+    # so unsnapped cuts accumulate A/V drift (QC measured ~100 ms on clips with several cuts)
+    snap = lambda t: base + round((t - base) * fps) / fps  # noqa: E731
+    segs = [(snap(a), snap(b)) for a, b in segs]
+    segs = [(a, b) for a, b in segs if b - a >= 2 / fps]
     fc_parts, labels = [], []
     for i, (a, b) in enumerate(segs):
         fc_parts.append(f"[0:v]trim={a - base:.3f}:{b - base:.3f},setpts=PTS-STARTPTS[v{i}];"
@@ -145,56 +150,112 @@ def render(source: dict, transcript: dict, sig: dict, cand: dict, clip_id: str,
             continue
         words.append({**w, "s": s, "e": e if e is not None else s + 0.3})
 
-    # 3) layout
-    layout = json.loads(source.get("layout_json") or "{}").get("facecam")
+    # 3) layout - analysed per clip on the source footage of THIS moment (facecam can move/resize)
+    from .layout import LayoutPlan, Rect, analyze, fc_fit
     e = cfg()["editing"]
+    if layout_override is not None:
+        plan = layout_override
+    else:
+        plan = analyze(src, cand["start"], cand["end"], W, H)
     zoom_t = punch_in_times(cut, e["punch_ins"])
     zexpr = _zoom_expr(zoom_t)
     ass = DIRS["subtitles"] / f"{clip_id}.ass"
-    if layout:
-        fc = layout
-        gp_cw = min(W, int(H * W_OUT / GP_H)) // 2 * 2
-        gx = gameplay_crop_x(cut, W, H, gp_cw, fc)
-        cap_y, hook_y, hook_until = FC_H + 90, FC_H - 90, 3.0
+    hook_until = None
+
+    def gameplay_chain(label_in: str, out_w: int, out_h: int, label_out: str) -> str:
+        g = plan.gameplay
+        chain = f"[{label_in}]crop={g.w}:{g.h}:{g.x}:{g.y}"
+        if plan.gameplay_mask:  # facecam unavoidable inside the crop -> blur it so it never shows twice
+            m = plan.gameplay_mask
+            chain += (f",split=2[gm1][gm2];[gm2]crop={max(2, m.w // 2 * 2)}:{max(2, m.h // 2 * 2)}:{m.x}:{m.y},"
+                      f"boxblur=30:4[gmb];[gm1][gmb]overlay={m.x}:{m.y}")
+        for k, br in enumerate(plan.blur_rects or []):  # stream chat -> soft blur so it doesn't clutter
+            bw, bh = max(2, br["w"] // 2 * 2), max(2, br["h"] // 2 * 2)
+            chain += (f",split=2[cb{k}a][cb{k}b];[cb{k}b]crop={bw}:{bh}:{br['x']}:{br['y']},boxblur=18:3[cb{k}c];"
+                      f"[cb{k}a][cb{k}c]overlay={br['x']}:{br['y']}")
+        chain += (f",scale={out_w}:{out_h},zoompan=z='{zexpr}':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2'"
+                  f":s={out_w}x{out_h}:fps={fps},setsar=1[{label_out}]")
+        return chain
+
+    if plan.kind == "facecam_stack":
+        fc, hb = plan.facecam, plan.fc_band_h
+        ox, oy, fw, fh = fc_fit(plan)
+        gb = H_OUT - hb
         vgraph = (
-            f"[0:v]split=2[fc][gp];"
-            f"[fc]crop={fc['w']}:{fc['h']}:{fc['x']}:{fc['y']},"
-            f"scale={W_OUT}:{FC_H}:force_original_aspect_ratio=increase,crop={W_OUT}:{FC_H},"
-            f"zoompan=z='{zexpr}':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s={W_OUT}x{FC_H}:fps={fps}[fcv];"
-            f"[gp]crop={gp_cw}:{H}:{gx}:0,scale={W_OUT}:{GP_H},setsar=1[gpv];"
-            f"[fcv][gpv]vstack=inputs=2[stk]")
+            f"[0:v]split=3[fa][fb][g];"
+            # blurred, darkened copy of the facecam fills the band (no black bars, nobody cropped)
+            f"[fa]crop={fc.w}:{fc.h}:{fc.x}:{fc.y},scale=270:{hb // 4 // 2 * 2}:force_original_aspect_ratio=increase,"
+            f"crop=270:{hb // 4 // 2 * 2},boxblur=10:2,scale={W_OUT}:{hb},eq=brightness=-0.22:saturation=0.9,setsar=1[fcbg];"
+            # the COMPLETE facecam, fitted (contain) - every person stays in frame
+            f"[fb]crop={fc.w}:{fc.h}:{fc.x}:{fc.y},scale={fw}:{fh},setsar=1[fcfg];"
+            f"[fcbg][fcfg]overlay={ox}:{oy}[fcv];"
+            + gameplay_chain("g", W_OUT, gb, "gpv") + ";"
+            f"[fcv][gpv]vstack=inputs=2,drawbox=x=0:y={hb - 2}:w={W_OUT}:h=4:color=black@0.55:t=fill[stk]")
+        hook_until = 3.0
         layout_name = "facecam_stack"
-    else:
-        asp = e["gameplay_layout_aspect"]
-        gh = int(W_OUT / asp) // 2 * 2
-        cw = min(W, int(H * asp)) // 2 * 2
-        gx = gameplay_crop_x(cut, W, H, cw, None)
-        gy = 400
-        cap_y, hook_y, hook_until = gy + gh + 170, 250, None
+    elif plan.kind == "camera":
+        g = plan.gameplay
+        vgraph = (f"[0:v]crop={g.w}:{g.h}:{g.x}:{g.y},scale={W_OUT}:{H_OUT},setsar=1[stk]")
+        layout_name = "camera"
+    else:  # gameplay_focus / camera_fit: full subject on a blurred fill
+        g = plan.gameplay
+        gh = int(W_OUT * g.h / g.w) // 2 * 2
+        gy = max(0, (H_OUT - gh) // 2 - 120) // 2 * 2
         vgraph = (
             f"[0:v]split=2[bg][g];"
             f"[bg]scale=270:480:force_original_aspect_ratio=increase,crop=270:480,boxblur=12:3,"
-            f"scale={W_OUT}:{H_OUT},eq=brightness=-0.12:saturation=1.1,setsar=1[bgv];"
-            f"[g]crop={cw}:{H}:{gx}:0,scale={W_OUT}:{gh},"
-            f"zoompan=z='{zexpr}':d=1:x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':s={W_OUT}x{gh}:fps={fps},setsar=1[gv];"
+            f"scale={W_OUT}:{H_OUT},eq=brightness=-0.15:saturation=1.05,setsar=1[bgv];"
+            + gameplay_chain("g", W_OUT, gh, "gv") + ";"
             f"[bgv][gv]overlay=0:{gy}[stk]")
-        layout_name = "gameplay_focus"
+        plan.caption_y = min(H_OUT - 260, gy + gh + 150)
+        plan.hook_y = max(120, gy - 110)
+        layout_name = plan.kind
 
-    build_ass(words, ass, cut_dur, cap_y, hook_text=hook_text, hook_y=hook_y,
+    build_ass(words, ass, cut_dur, plan.caption_y, hook_text=hook_text, hook_y=plan.hook_y,
               hook_until=hook_until, corrections=corrections)
-    fonts = e["fonts_dir"].replace("\\", "/").replace(":", "\\:")
-    vgraph += f";[stk]ass=filename='{ass.name}':fontsdir='{fonts}',format=yuv420p[vout]"
-    agraph = (f"[0:a]loudnorm=I={e['loudness_lufs']}:TP=-1.5:LRA=11,"
-              f"aresample=48000,afade=t=out:st={max(0, cut_dur - 0.3):.2f}:d=0.3[aout]")
+    fonts = e["fonts_dir"].replace("\\", "/").replace(":", r"\:")
+    fade_out = max(0.0, cut_dur - 0.25)
+    vgraph += (f";[stk]ass=filename='{ass.name}':fontsdir='{fonts}',"
+               f"fade=t=out:st={fade_out:.2f}:d=0.25,format=yuv420p[vout]")  # no fade-in: frame 1 is the cover/hook
+
+    # audio: optional subtle whoosh on punch-ins (generated locally - no licensing issues), then loudness
+    inputs = ["-i", cut]
+    sfx_times = zoom_t if e.get("sfx", True) else []
+    if sfx_times:
+        inputs += ["-i", _whoosh()]
+        n = len(sfx_times)
+        agraph = f"[1:a]asplit={n}" + "".join(f"[s{i}]" for i in range(n)) + ";" if n > 1 else "[1:a]anull[s0];"
+        for i, t in enumerate(sfx_times):
+            d = int(max(0, t - 0.18) * 1000)
+            agraph += f"[s{i}]adelay={d}|{d},volume=0.35[d{i}];"
+        agraph += "[0:a]" + "".join(f"[d{i}]" for i in range(n)) + f"amix=inputs={n + 1}:normalize=0:duration=first,"
+    else:
+        agraph = "[0:a]"
+    # pad/trim to the exact video length: mixing the SFX left ~100 ms of extra audio (QC caught the drift)
+    vdur = float(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=duration",
+                                 "-of", "csv=p=0", str(cut)], capture_output=True, text=True).stdout.strip() or cut_dur)
+    agraph += (f"loudnorm=I={e['loudness_lufs']}:TP=-1.5:LRA=11,aresample=48000,apad,atrim=end={vdur:.3f},"
+               f"asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.1,afade=t=out:st={max(0, vdur - 0.3):.2f}:d=0.3[aout]")
     out = DIRS["final_clips"] / f"{clip_id}.mp4"
-    run(["ffmpeg", "-y", "-v", "error", "-i", cut, "-filter_complex", vgraph + ";" + agraph,
+    run(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", vgraph + ";" + agraph,
          "-map", "[vout]", "-map", "[aout]", "-r", f"{fps}", *video_encoder_args(19),
          "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-movflags", "+faststart", out],
         cwd=str(ass.parent))
     sha = hashlib.sha256(out.read_bytes()).hexdigest()
     res = {"path": str(out), "duration": round(probe(out)["duration"], 2), "layout": layout_name,
            "sha256": sha, "dead_air_removed_s": round(removed, 2), "punch_ins": zoom_t,
-           "segments": segs}
-    log.info("Rendered %s (%.1fs, %s, -%.1fs dead air, %d punch-ins)", out.name, res["duration"],
-             layout_name, removed, len(zoom_t))
+           "segments": segs, "plan": plan.to_dict(), "cut_duration": round(cut_dur, 2),
+           "captions": len(words)}
+    log.info("Rendered %s (%.1fs, %s, %d people in facecam, -%.1fs dead air, %d punch-ins)", out.name,
+             res["duration"], layout_name, plan.people, removed, len(zoom_t))
     return res
+
+
+def _whoosh() -> str:
+    """A short, soft whoosh synthesised with ffmpeg (original audio, safe to publish)."""
+    p = DIRS["work"] / "sfx_whoosh.wav"
+    if not p.exists():
+        run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "anoisesrc=color=pink:duration=0.55:amplitude=0.7",
+             "-af", "highpass=f=300,lowpass=f=4500,afade=t=in:d=0.28:curve=exp,afade=t=out:st=0.28:d=0.27,"
+             "volume=0.6,aresample=48000", "-ac", "2", str(p)])
+    return str(p)

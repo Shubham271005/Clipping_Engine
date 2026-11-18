@@ -27,6 +27,7 @@ scoring:
     bystanders negatively, reveals private information, or needs a lot of context.
 
 editing:
+  layout_mode: camera            # full-frame camera: keep every person in one static 9:16 crop
   gameplay_layout_aspect: 0.8    # camera footage: tighter vertical crop works
   punch_ins: 2
 

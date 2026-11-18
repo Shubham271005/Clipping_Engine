@@ -24,12 +24,15 @@
       </div>
     </form>
   </div>
+  <script src="/config.js"></script>
   <script>
     document.getElementById('f').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('go'), err = document.getElementById('err');
       btn.classList.add('loading'); err.hidden = true;
-      const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const apiBase = String(window.CLIP_STUDIO_API_URL || '').replace(/\/$/, '');
+      const r = await fetch(`${apiBase}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ password: document.getElementById('pw').value }) });
       btn.classList.remove('loading');
       if (r.ok) location.href = '/'; else { err.textContent = 'Wrong password.'; err.hidden = false; }

@@ -1,6 +1,6 @@
 // Clip review & metadata editor (small version: watch, approve/reject, edit metadata, see AI reasoning).
-import { api } from '../api.js';
-import { busy, card, charCounter, chipsInput, clear, field, fmt, h, icon, scorePill, setTopbar, statusBadge } from '../ui.js';
+import { api, apiUrl } from '../api.js';
+import { busy, card, charCounter, chipsInput, clear, confirmDialog, field, fmt, h, icon, qcBadge, scorePill, setTopbar, statusBadge, toast } from '../ui.js';
 
 const SCORE_KEYS = ['hook', 'entertainment', 'unexpectedness', 'emotion', 'relatability', 'story_clarity', 'replay', 'standalone',
   'audio_quality', 'visual_quality'];
@@ -12,7 +12,7 @@ export async function render(page, id) {
   const state = c.preview ? 'preview' : c.review_status;
 
   // ---------------- left: player + review actions
-  const video = h('video', { src: `/media/clip/${encodeURIComponent(c.id)}?v=${encodeURIComponent(c.updated_at || c.created_at || '')}`,
+  const video = h('video', { src: apiUrl(`/media/clip/${encodeURIComponent(c.id)}?v=${encodeURIComponent(c.updated_at || c.created_at || '')}`),
     controls: true, playsInline: true, preload: 'metadata' });
   const reviewBtns = h('div.grid.g2');
   const setReview = async (btn, status) => {
@@ -38,10 +38,42 @@ export async function render(page, id) {
       onclick: (e) => setReview(e.currentTarget, 'pending') }, 'Move back to review'));
   }
 
+  // regenerate: re-run layout analysis + render + quality control for this clip
+  const regen = h('button.btn', { disabled: c.locked || c.rerendering, style: { gridColumn: '1 / -1' } },
+    icon('retry'), c.rerendering ? 'Regenerating…' : 'Regenerate clip');
+  regen.addEventListener('click', async () => {
+    if (!(await confirmDialog('Regenerate this clip?', 'The facecam/gameplay layout is re-detected, the clip is re-rendered and quality-checked again. Your title and description edits are kept.', 'Regenerate'))) return;
+    const r = await busy(regen, () => api.post(`/api/clips/${encodeURIComponent(c.id)}/rerender`, {}));
+    toast('Regenerating… this page refreshes when it is done', 'good');
+    regen.disabled = true; regen.lastChild.textContent = 'Regenerating…';
+    const t = setInterval(async () => {
+      try {
+        const j = await api.get(`/api/jobs/${r.id}`);
+        if (['done', 'failed', 'cancelled'].includes(j.status)) {
+          clearInterval(t);
+          if (j.status === 'done') location.reload(); else toast(`Regeneration ${j.status}: ${j.stage}`, 'bad', 8000);
+        }
+      } catch { /* keep polling */ }
+    }, 2500);
+  });
+  if (!c.preview) reviewBtns.append(regen);
+
+  // quality control report
+  const qc = c.qc;
+  const qcCard = card('Quality control', qc ? `${qc.checks.filter((x) => x.status === 'pass').length}/${qc.checks.length} checks passed` : null,
+    qc ? h('div.stack', { style: { gap: '6px' } },
+      h('div.row', qcBadge(qc.status), qc.attempts?.length > 1 ? h('span.small.muted', `${qc.attempts.length} render attempts (auto-fixed)`) : null),
+      ...qc.checks.map((x) => h('div.row', { style: { alignItems: 'flex-start', gap: '8px' } },
+        h('span', { style: { color: x.status === 'pass' ? 'var(--good)' : x.status === 'warn' ? 'var(--warn)' : 'var(--bad)', marginTop: '1px' } },
+          icon(x.status === 'pass' ? 'check' : x.status === 'warn' ? 'alert' : 'x')),
+        h('div', { style: { minWidth: 0 } }, h('div.small', fmt.cat(x.name)), h('div.small.muted', x.detail)))))
+      : h('div.callout.warn', icon('alert'), h('div', 'Rendered before automatic quality control existed. Regenerate to check it (approval needs a passing check).')));
+
   const src = c.source;
-  const left = h('div.player.stack', video, reviewBtns,
+  const left = h('div.player.stack', video, reviewBtns, qcCard,
     card(null, null, h('dl.kv',
       h('dt', 'Status'), h('dd', statusBadge(state)),
+      h('dt', 'Quality'), h('dd', qcBadge(c.qc_status)),
       h('dt', 'Score'), h('dd', scorePill(c.virality)),
       h('dt', 'Category'), h('dd', fmt.cat(c.category)),
       h('dt', 'Length'), h('dd', `${fmt.dur(c.duration)} · ${c.layout === 'facecam_stack' ? 'facecam + gameplay' : 'gameplay focus'}`),

@@ -6,7 +6,7 @@ import json
 from . import db
 from .common import DIRS, fmt_ts, get_logger, profile
 from .detection import candidates, signals
-from .editing.render import render
+from .editing.qc import render_with_qc
 from .ingestion import rights
 from .ingestion.download import ingest
 from .metadata.generate import generate
@@ -70,23 +70,26 @@ def process(url: str, streamer: str | None = None, game: str | None = None,
         try:
             meta = generate(src, tr, c, clip_id)
             hook = meta.get("on_screen_hook") or c.get("on_screen_hook") or ""
-            res = render(src, tr, sig, c, clip_id, corrections=meta.get("caption_corrections"), hook_text=hook)
+            res = render_with_qc(src, tr, sig, c, clip_id, corrections=meta.get("caption_corrections"), hook_text=hook)
         except Exception as e:
             log.error("Clip %s failed: %s", clip_id, e)
             continue
         meta["render"] = {k: res[k] for k in ("layout", "dead_air_removed_s", "punch_ins")}
+        meta["render"]["people_in_facecam"] = res["plan"].get("people", 0)
         (DIRS["metadata"] / f"{clip_id}.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False),
                                                          encoding="utf-8")
         db.execute("INSERT OR REPLACE INTO clips (id,source_id,candidate_id,path,sha256,duration,layout,category,"
-                   "virality,source_start,source_end,metadata_json,commentary_json,created_at,preview) "
-                   "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                   "virality,source_start,source_end,metadata_json,commentary_json,created_at,preview,qc_status,qc_json) "
+                   "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                    (clip_id, src["id"], c["db_id"], res["path"], res["sha256"], res["duration"], res["layout"],
                     c["category"], c["virality"], c["start"], c["end"], db.dumps(meta),
-                    db.dumps(meta.get("commentary") or {}), db.now_iso(), int(is_preview)))
+                    db.dumps(meta.get("commentary") or {}), db.now_iso(), int(is_preview),
+                    res["qc"]["status"], db.dumps(res["qc"])))
         if not is_preview:
             db.execute("UPDATE candidates SET status='rendered' WHERE id=?", (c["db_id"],))
         made.append({"clip_id": clip_id, "path": res["path"], "score": c["virality"],
-                     "title": meta["youtube"]["best_title"], "preview": is_preview})
+                     "title": meta["youtube"]["best_title"], "preview": is_preview,
+                     "qc": res["qc"]["status"]})
 
     sched = schedule_all() if (schedule and ok) else {"scheduled": 0}
     summary = {"source_id": src["id"], "profile": pr["id"], "candidates": len(cands), "selected": len(kept),

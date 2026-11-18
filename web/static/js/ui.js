@@ -1,4 +1,5 @@
 // UI toolkit: safe DOM builder, icons, toasts, modals, formatters, shared components.
+import { apiUrl } from './api.js';
 
 const ICONS = {
   play: '<path d="M8 5l11 7-11 7z" fill="currentColor" stroke="none"/>',
@@ -164,6 +165,11 @@ const STATUS = {
   scheduled: ['info', 'Scheduled'], uploading: ['info', 'Uploading'], uploaded: ['accent', 'Uploaded · scheduled'],
   published: ['good', 'Published'], blocked: ['bad', 'Blocked'], preview: ['accent', 'Preview'],
 };
+const QC = { pass: ['good', 'QC passed'], warn: ['warn', 'QC: warnings'], fail: ['bad', 'QC failed'] };
+export function qcBadge(status) {
+  const [k, label] = QC[status] || ['', 'QC: not checked'];
+  return h('span.badge', { class: k, title: 'Automatic quality control (measured on the rendered video)' }, label);
+}
 export function statusBadge(status) {
   const [k, label] = STATUS[status] || ['', status];
   return h('span.badge', { class: k }, status === 'running' || status === 'uploading' ? h('span.dot.pulse') : null, label);
@@ -195,9 +201,10 @@ export function field(label, input, hint) {
 export function clipCard(c) {
   const state = c.preview ? 'preview' : c.review_status;
   return h('a.clip-card', { href: `#/clips/${encodeURIComponent(c.id)}` },
-    h('div.thumb', { style: c.file_exists ? { backgroundImage: `url(/media/thumb/${encodeURIComponent(c.id)}?v=${encodeURIComponent(c.updated_at || c.created_at || '')})` } : null },
+    h('div.thumb', { style: c.file_exists ? { backgroundImage: `url(${apiUrl(`/media/thumb/${encodeURIComponent(c.id)}?v=${encodeURIComponent(c.updated_at || c.created_at || '')}`)})` } : null },
       h('div.score', scorePill(c.virality)), h('div.state', statusBadge(state)), h('span.dur', fmt.dur(c.duration))),
     h('div.meta', h('div.t', c.title || c.id),
+      h('div', qcBadge(c.qc_status)),
       h('div.row.small.muted', h('span', fmt.cat(c.category)),
         c.publications?.length ? h('span', '· ' + c.publications.map((p) => p.platform === 'youtube' ? 'YT' : 'IG').join(' ')) : null)));
 }

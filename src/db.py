@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS clips (
     narrated INTEGER DEFAULT 0,
     preview INTEGER DEFAULT 0,              -- forced preview render: never scheduled
     review_status TEXT DEFAULT 'pending',   -- human approval: pending | approved | rejected
+    qc_status TEXT,                         -- automatic quality control: pass | warn | fail
+    qc_json TEXT,
     updated_at TEXT,
     created_at TEXT
 );
@@ -126,6 +128,8 @@ def connect():
 MIGRATIONS = ["ALTER TABLE clips ADD COLUMN preview INTEGER DEFAULT 0",
               "ALTER TABLE clips ADD COLUMN review_status TEXT DEFAULT 'pending'",  # pending|approved|rejected
               "ALTER TABLE clips ADD COLUMN updated_at TEXT",
+              "ALTER TABLE clips ADD COLUMN qc_status TEXT",   # pass | warn | fail (measured quality control)
+              "ALTER TABLE clips ADD COLUMN qc_json TEXT",
               "ALTER TABLE sources ADD COLUMN profile TEXT DEFAULT 'gta6'"]
 
 

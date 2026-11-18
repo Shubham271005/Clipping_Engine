@@ -9,7 +9,7 @@ from ..common import DIRS, get_logger, set_profile
 from ..detection import signals
 from ..metadata.generate import _validate, generate
 from ..transcription.transcribe import transcribe
-from .render import render
+from .qc import render_with_qc
 
 log = get_logger("manual")
 
@@ -47,13 +47,15 @@ def rerender_clip(clip_id: str, start: float | None = None, end: float | None = 
     if corrections is not None:
         meta["caption_corrections"] = corrections
     cand = {"start": st, "end": en}
-    res = render(src, tr, sig, cand, clip_id, corrections=meta.get("caption_corrections"),
-                 hook_text=meta.get("on_screen_hook") or "")
+    res = render_with_qc(src, tr, sig, cand, clip_id, corrections=meta.get("caption_corrections"),
+                         hook_text=meta.get("on_screen_hook") or "")
     meta["render"] = {k: res[k] for k in ("layout", "dead_air_removed_s", "punch_ins")}
+    meta["render"]["people_in_facecam"] = res["plan"].get("people", 0)
     (DIRS["metadata"] / f"{clip_id}.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     db.execute("UPDATE clips SET path=?, sha256=?, duration=?, layout=?, source_start=?, source_end=?, metadata_json=?, "
-               "narrated=0, updated_at=? WHERE id=?",
-               (res["path"], res["sha256"], res["duration"], res["layout"], st, en, db.dumps(meta), db.now_iso(), clip_id))
+               "narrated=0, updated_at=?, qc_status=?, qc_json=? WHERE id=?",
+               (res["path"], res["sha256"], res["duration"], res["layout"], st, en, db.dumps(meta), db.now_iso(),
+                res["qc"]["status"], db.dumps(res["qc"]), clip_id))
     log.info("Re-rendered %s [%.1f-%.1f]", clip_id, st, en)
     return {"clip_id": clip_id, **res}
 
@@ -72,16 +74,17 @@ def render_candidate(candidate_id: int) -> dict:
     rj = json.loads(c["review_json"] or "{}")
     cand = {**c, "on_screen_hook": rj.get("on_screen_hook", "")}
     meta = generate(src, tr, cand, clip_id)
-    res = render(src, tr, sig, cand, clip_id, corrections=meta.get("caption_corrections"),
-                 hook_text=meta.get("on_screen_hook") or cand["on_screen_hook"])
+    res = render_with_qc(src, tr, sig, cand, clip_id, corrections=meta.get("caption_corrections"),
+                         hook_text=meta.get("on_screen_hook") or cand["on_screen_hook"])
     meta["render"] = {k: res[k] for k in ("layout", "dead_air_removed_s", "punch_ins")}
+    meta["render"]["people_in_facecam"] = res["plan"].get("people", 0)
     (DIRS["metadata"] / f"{clip_id}.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     db.execute("INSERT OR REPLACE INTO clips (id,source_id,candidate_id,path,sha256,duration,layout,category,virality,"
-               "source_start,source_end,metadata_json,commentary_json,created_at,preview,review_status) "
-               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'pending')",
+               "source_start,source_end,metadata_json,commentary_json,created_at,preview,review_status,qc_status,qc_json) "
+               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,'pending',?,?)",
                (clip_id, src["id"], candidate_id, res["path"], res["sha256"], res["duration"], res["layout"],
                 c["category"], c["virality"], c["start"], c["end"], db.dumps(meta),
-                db.dumps(meta.get("commentary") or {}), db.now_iso()))
+                db.dumps(meta.get("commentary") or {}), db.now_iso(), res["qc"]["status"], db.dumps(res["qc"])))
     db.execute("UPDATE candidates SET status='rendered' WHERE id=?", (candidate_id,))
     log.info("Manual clip %s created from candidate %d (clip #%d of source)", clip_id, candidate_id, n + 1)
     return {"clip_id": clip_id, **res}

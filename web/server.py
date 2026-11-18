@@ -26,6 +26,7 @@ import yaml
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 from src import common, db
 from src.common import DIRS, PROFILES_DIR, ROOT, cfg, get_logger, list_profiles, load_profile
@@ -34,10 +35,23 @@ from .jobs import JobManager
 log = get_logger("web")
 STATIC = Path(__file__).parent / "static"
 app = FastAPI(title="Clip Studio", docs_url=None, redoc_url=None)
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("DASHBOARD_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 jobs: JobManager | None = None
 SESSIONS: set[str] = set()
 AUTH = {"required": False}
 PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+CROSS_ORIGIN_COOKIES = os.getenv("DASHBOARD_CROSS_ORIGIN_COOKIES", "").lower() in ("1", "true", "yes")
 
 
 # ===================================================================== auth
@@ -71,7 +85,14 @@ def login(body: dict = Body(...)):
     tok = secrets.token_urlsafe(32)
     SESSIONS.add(tok)
     r = JSONResponse({"ok": True})
-    r.set_cookie("cs_session", tok, httponly=True, samesite="strict", max_age=7 * 86400)
+    r.set_cookie(
+        "cs_session",
+        tok,
+        httponly=True,
+        samesite="none" if CROSS_ORIGIN_COOKIES else "strict",
+        secure=CROSS_ORIGIN_COOKIES,
+        max_age=7 * 86400,
+    )
     return r
 
 
@@ -105,7 +126,7 @@ def _clip_summary(c: dict) -> dict:
     meta = json.loads(c["metadata_json"] or "{}")
     return {k: c.get(k) for k in ("id", "source_id", "candidate_id", "duration", "layout", "category", "virality",
                                   "source_start", "source_end", "preview", "review_status", "narrated",
-                                  "created_at", "updated_at")} | {
+                                  "created_at", "updated_at", "qc_status")} | {
         "title": (meta.get("youtube") or {}).get("best_title"), "hook": meta.get("on_screen_hook"),
         "file_exists": bool(c["path"] and Path(c["path"]).exists()),
         "publications": db.rows("SELECT id,platform,status,scheduled_for,url,last_error FROM publications "
@@ -415,6 +436,9 @@ def clip_get(clip_id: str):
         from src.transcription.transcribe import words_between
         words = [w["w"] for w in words_between(tr, c["source_start"], c["source_end"])]
     out["transcript"] = " ".join(words)
+    out["qc"] = json.loads(c.get("qc_json") or "null")
+    out["rerendering"] = bool(db.one("SELECT id FROM jobs WHERE kind='rerender' AND status IN ('queued','running','paused') "
+                                     "AND args_json LIKE ?", (f'%"{clip_id}"%',)))
     out["locked"] = bool(db.one("SELECT id FROM publications WHERE clip_id=? AND status IN ('uploading','uploaded','published')",
                                 (clip_id,)))
     return out
@@ -438,6 +462,10 @@ def clip_review(clip_id: str, body: dict = Body(...)):
         raise HTTPException(400, "status must be approved, rejected or pending")
     if status == "approved" and c["preview"]:
         raise HTTPException(400, "preview renders cannot be approved - render the moment as a real clip first")
+    if status == "approved" and c.get("qc_status") != "pass" and c.get("qc_status") != "warn":
+        raise HTTPException(400, "this clip has not passed the automatic quality check - regenerate it first"
+                                 if c.get("qc_status") == "fail" else
+                                 "this clip was rendered before quality control existed - regenerate it first")
     db.execute("UPDATE clips SET review_status=?, updated_at=? WHERE id=?", (status, db.now_iso(), clip_id))
     if status != "approved":
         db.execute("DELETE FROM publications WHERE clip_id=? AND status='scheduled'", (clip_id,))

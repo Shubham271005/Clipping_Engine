@@ -14,3 +14,5 @@ database/
 work/
 *.mp4
 *.mkv
+
+.vercel

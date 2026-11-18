@@ -35,6 +35,7 @@ def schedule_all() -> dict:
     summary = {"scheduled": 0, "blocked": []}
     clips = db.rows("SELECT c.*, s.rights_status, s.commercial_use, s.restrictions, s.streamer "
                     "FROM clips c JOIN sources s ON s.id=c.source_id WHERE COALESCE(c.preview,0)=0 "
+                    "AND c.qc_status IN ('pass','warn') "
                     + ("AND c.review_status='approved' " if p.get("require_approval", True) else
                        "AND COALESCE(c.review_status,'pending')<>'rejected' ")
                     + "ORDER BY c.virality DESC")

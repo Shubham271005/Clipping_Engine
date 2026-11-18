@@ -25,6 +25,7 @@ review:
   overlap_threshold: 0.35
 
 editing:
+  layout_mode: auto               # auto | camera (IRL) - facecam/overlay detection per clip
   encoder: h264_nvenc             # h264_nvenc (GPU) or libx264 (CPU fallback)
   font: Arial Black
   fonts_dir: C:/Windows/Fonts
