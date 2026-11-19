@@ -16,7 +16,7 @@ import yaml
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / ".env")
+load_dotenv(ROOT / ".env", override=True)  # .env is authoritative (VS Code may inject stale values into terminals)
 
 DIRS = {k: ROOT / k for k in [
     "downloads", "transcripts", "candidate_clips", "final_clips", "subtitles",
