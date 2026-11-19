@@ -108,13 +108,15 @@ def run_qc(out_path: str, res: dict, source_path: str, expected_words: int) -> d
     faces_out = faces_in_output(plan)
     cap = Rect(60, plan.caption_y - 70, OUT_W - 120, 140)
     hits = [f for f in faces_out if cap.inter(f) > 0]
+    if plan.kind == "facecam_stack" and plan.caption_y - 70 < plan.hook_y + 205:
+        hits = hits + ["seam phrase"]
     checks.append(_check("caption_position", "pass" if not hits else "fail",
                          f"captions at y={plan.caption_y}" + (" overlap a face" if hits else ", clear of faces")))
 
     # ---------------- composition
     if plan.kind == "facecam_stack":
         frac = plan.fc_band_h / OUT_H
-        checks.append(_check("composition", "pass" if 0.24 <= frac <= 0.36 else "warn",
+        checks.append(_check("composition", "pass" if 0.24 <= frac <= 0.46 else "warn",
                              f"facecam {frac:.0%} / gameplay {1 - frac:.0%} of the frame", round(frac, 3)))
         fc, g = plan.facecam, plan.gameplay
         overlap = g.inter(fc) - (plan.gameplay_mask.w * plan.gameplay_mask.h if plan.gameplay_mask else 0)
@@ -191,7 +193,8 @@ def expand_plan(plan: LayoutPlan, frac: float = 0.10) -> LayoutPlan:
     plan.gameplay, plan.gameplay_mask, why = _gameplay_crop(plan.src_w, plan.src_h, OUT_W / gp_h, plan.facecam,
                                                             plan.gameplay.x + plan.gameplay.w / 2)
     plan.gameplay = plan.gameplay.even(plan.src_w, plan.src_h)
-    plan.caption_y = plan.fc_band_h + int(gp_h * 0.20)
+    plan.caption_y = plan.fc_band_h + int(gp_h * 0.32)
+    plan.hook_y = plan.fc_band_h + 22
     plan.notes.append(f"QC retry: facecam expanded {frac:.0%}; {why}")
     return plan
 

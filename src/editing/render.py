@@ -191,7 +191,7 @@ def render(source: dict, transcript: dict, sig: dict, cand: dict, clip_id: str,
             f"[fcbg][fcfg]overlay={ox}:{oy}[fcv];"
             + gameplay_chain("g", W_OUT, gb, "gpv") + ";"
             f"[fcv][gpv]vstack=inputs=2,drawbox=x=0:y={hb - 2}:w={W_OUT}:h=4:color=black@0.55:t=fill[stk]")
-        hook_until = 3.0
+        hook_until = None  # seam phrase stays for the whole clip
         layout_name = "facecam_stack"
     elif plan.kind == "camera":
         g = plan.gameplay

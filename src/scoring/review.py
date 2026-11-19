@@ -44,7 +44,7 @@ Return ONLY a JSON array, one object per candidate:
   "summary": "<what happens, factual, from the transcript>",
   "why": "<why a Western gaming audience would watch/share it>",
   "hook": "<what happens in the first 1-2 seconds that hooks viewers>",
-  "on_screen_hook": "<max 6 words of punchy on-screen text in {language_style}, not misleading>",
+  "on_screen_hook": "<2-6 word catchy phrase in {language_style} shown between facecam and gameplay; double meaning welcome; no emoji; never misleading>",
   "complete_arc": true/false,
   "scores": {{"hook":0-10,"entertainment":0-10,"unexpectedness":0-10,"emotion":0-10,
              "relatability":0-10,"story_clarity":0-10,"replay":0-10,"standalone":0-10}}}}

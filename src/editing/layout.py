@@ -31,7 +31,7 @@ YUNET_URL = ("https://github.com/opencv/opencv_zoo/raw/main/models/face_detectio
 YUNET_PATH = ROOT / "models" / "face_detection_yunet_2023mar.onnx"
 
 OUT_W, OUT_H = 1080, 1920
-FC_MIN_H, FC_MAX_H = 480, 672        # facecam band = 25%..35% of the frame
+FC_MIN_H, FC_MAX_H = 480, 864        # facecam band = 25%..45% of the frame, chosen from the facecam's own shape
 
 
 @dataclass
@@ -465,7 +465,7 @@ def analyze(path: Path, start: float, end: float, src_w: int, src_h: int, sample
             plan.blur_rects.append(asdict(Rect(ix1 - g.x, iy1 - g.y, ix2 - ix1, iy2 - iy1)))
     if plan.blur_rects:
         plan.notes.append(f"stream chat inside gameplay crop blurred ({len(plan.blur_rects)} area)")
-    plan.caption_y = plan.fc_band_h + int(gp_h * 0.20)
+    plan.caption_y = plan.fc_band_h + int(gp_h * 0.32)   # below the seam phrase
     plan.hook_y = _hook_y(plan)
     log.info("Layout: facecam %s with %d person(s), band %dpx, gameplay crop %s", (fc.x, fc.y, fc.w, fc.h),
              plan.people, plan.fc_band_h, (plan.gameplay.x, plan.gameplay.y, plan.gameplay.w, plan.gameplay.h))
@@ -494,13 +494,11 @@ def faces_in_output(plan: LayoutPlan) -> list[Rect]:
 
 
 def _hook_y(plan: LayoutPlan) -> int:
-    """Put the hook text at the top or bottom of the facecam band, whichever is farther from faces."""
-    faces = faces_in_output(plan)
-    if not faces:
-        return 90
-    top_free = min(f.y for f in faces)
-    bottom_free = plan.fc_band_h - max(f.y2 for f in faces)
-    return 70 if top_free >= bottom_free else plan.fc_band_h - 70
+    """Seam phrase: sits just below the line where facecam and gameplay meet (top-anchored there),
+    so it never covers a face and reads as the clip's 'headline'."""
+    if plan.kind == "facecam_stack":
+        return plan.fc_band_h + 22
+    return 90
 
 
 def _gameplay_only(W, H, frames, notes) -> LayoutPlan:

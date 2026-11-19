@@ -24,6 +24,28 @@ def _ts(t: float) -> str:
     return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
 
 
+_EMOJI = re.compile("[🀀-🫿☀-➿️‍]+")
+
+
+def strip_emoji(text: str) -> str:
+    """The seam phrase is text only (libass draws emoji as black-and-white glyphs)."""
+    return re.sub(r"\s{2,}", " ", _EMOJI.sub("", text)).strip()
+
+
+def _wrap_phrase(text: str, max_chars: int) -> list[str]:
+    """Split the seam phrase into at most 2 balanced lines (like 'BRO FORGOT / IT'S JUST A GAME.')."""
+    words = text.split()
+    if len(text) <= max_chars or len(words) < 2:
+        return [text]
+    best, best_cost = [text], 1e9
+    for i in range(1, len(words)):
+        a, b = " ".join(words[:i]), " ".join(words[i:])
+        cost = max(len(a), len(b)) + (5 if len(a) > len(b) + 4 else 0)
+        if cost < best_cost:
+            best, best_cost = [a, b], cost
+    return best
+
+
 def group_words(words: list[dict], max_words: int) -> list[list[dict]]:
     groups, cur = [], []
     for w in words:
@@ -53,17 +75,21 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,{font},76,{e['caption_color']},&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,1,0,1,7,3,5,60,60,0,1
-Style: Hook,{font},62,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,3,14,0,5,60,60,0,1
+Style: Hook,{font},84,&H00FFFFFF,&H000000FF,&H00000000,&H78000000,-1,0,0,0,100,100,0,0,1,7,3,8,50,50,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
-    lines = []
     if hook_text:
         end = hook_until if hook_until is not None else duration
-        txt = _ass_escape(_mask(hook_text.upper()) if e["mask_profanity"] else hook_text.upper())
-        lines.append(f"Dialogue: 1,{_ts(0)},{_ts(end)},Hook,,0,0,0,,"
-                     f"{{\\pos(540,{hook_y})\\3c&H00101010&\\fad(150,150)}}{txt}")
+        txt = strip_emoji(hook_text).upper()
+        if e["mask_profanity"]:
+            txt = _mask(txt)
+        phrase = r"\N".join(_wrap_phrase(_ass_escape(txt), 18))  # ASS line break
+        tags = r"{\an8\pos(540,%d)\fad(120,150)}" % hook_y      # top-anchored just below the seam
+        lines = [f"Dialogue: 1,{_ts(0)},{_ts(end)},Hook,,0,0,0,,{tags}{phrase}"]
+    else:
+        lines = []
 
     def clean(w: str) -> str:
         w = w.strip()
