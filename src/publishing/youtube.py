@@ -32,6 +32,10 @@ def credentials(interactive: bool = False):
             TOKEN.write_text(creds.to_json(), encoding="utf-8")
         except Exception as e:
             log.error("Token refresh failed: %s", e)
+            if "invalid_grant" in str(e):
+                # access was revoked in the Google account -> delete everything obtained via the API (privacy policy)
+                purge_local_data()
+                log.warning("YouTube access was revoked: local token and stored YouTube data deleted")
             creds = None
     if not creds or not creds.valid:
         if not interactive:
@@ -44,6 +48,14 @@ def credentials(interactive: bool = False):
         creds = flow.run_local_server(port=0, prompt="consent", access_type="offline")
         TOKEN.write_text(creds.to_json(), encoding="utf-8")
     return creds
+
+
+def purge_local_data() -> None:
+    """Delete the OAuth token and all data obtained through the YouTube API Services."""
+    from .. import db
+    TOKEN.unlink(missing_ok=True)
+    (DIRS["secrets"] / "youtube_channel.json").unlink(missing_ok=True)
+    db.execute("DELETE FROM metrics WHERE publication_id IN (SELECT id FROM publications WHERE platform='youtube')")
 
 
 def service(interactive: bool = False):

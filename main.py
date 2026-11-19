@@ -14,7 +14,7 @@ import json
 import sys
 
 COMMANDS = {"profiles", "status", "rights", "auth", "schedule", "publish-due", "test-upload",
-            "analytics", "narrate", "rerender", "render-candidate", "approve", "reject"}
+            "analytics", "narrate", "rerender", "render-candidate", "approve", "reject", "disconnect"}
 
 
 def _process(argv):
@@ -63,6 +63,8 @@ def _commands(argv):
     r.add_argument("--streamer")
     au = sub.add_parser("auth")
     au.add_argument("platform", choices=["youtube", "instagram"])
+    dc = sub.add_parser("disconnect", help="remove the stored token and all data obtained from the platform API")
+    dc.add_argument("platform", choices=["youtube", "instagram"])
     sub.add_parser("schedule")
     sub.add_parser("publish-due")
     t = sub.add_parser("test-upload")
@@ -120,6 +122,16 @@ def _commands(argv):
         else:
             from src.publishing import instagram
             print("Authorized Instagram account:", instagram.authorize())
+    elif a.cmd == "disconnect":
+        if a.platform == "youtube":
+            from src.publishing import youtube
+            youtube.purge_local_data()
+        else:
+            from src.publishing import instagram
+            instagram.TOKEN_FILE.unlink(missing_ok=True)
+            db.execute("DELETE FROM metrics WHERE publication_id IN (SELECT id FROM publications WHERE platform='instagram')")
+        print(f"{a.platform}: local token and stored API data deleted. "
+              f"Also revoke the app at myaccount.google.com/permissions (YouTube) or in Instagram settings.")
     elif a.cmd == "schedule":
         from src.publishing.scheduler import schedule_all
         print(json.dumps(schedule_all(), indent=2))

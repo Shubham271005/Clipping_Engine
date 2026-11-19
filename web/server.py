@@ -696,8 +696,7 @@ def yt_connect():
 @app.post("/api/connections/youtube/disconnect")
 def yt_disconnect():
     from src.publishing import youtube
-    youtube.TOKEN.unlink(missing_ok=True)
-    YT_CHANNEL.unlink(missing_ok=True)
+    youtube.purge_local_data()  # token + all stored YouTube API data (privacy policy commitment)
     YT_CONNECT.update(state="idle", error=None)
     return connections()
 
